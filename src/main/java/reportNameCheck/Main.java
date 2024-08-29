@@ -50,7 +50,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
  * Entry class for {@link reportNameCheck}
  * 
  * @author Jaden
- * @version 0.1.0
+ * @version 0.2.0
  * @since 0.0.1
  */
 public class Main {
@@ -127,14 +127,14 @@ public class Main {
 	 * 
 	 * 20##_IE###_A##-##_AB######_FCA Sub-Site Report_asdf
 	 */
-	static final String correctSubSiteRegex = "(20\\d{2})_(IE\\d{3}|IA\\d{3}|JS\\d{3})_([A-Z]\\d{2}-\\d{2})_(AB\\d{6})_FCA Sub-Site Report_.*$";
-
+	static final String correctSubSiteRegex = "(20\\d{2})_(IE\\d{3}|IA\\d{3}|JS\\d{3})_([A-Z]\\d{2}-\\d{2})_(AB\\d{6})_FCA Sub-Site Report_(.+)\\.pdf$";
+	
 	/**
 	 * Regular expression representing a correctly named Appendix B report
 	 * 
 	 * 20##_IE###_A##-##_AB######_FCA Sub-Site Report App B_asdf
 	 */
-	static final String correctAppBRegex = "(20\\d{2})_(IE\\d{3}|IA\\d{3}|JS\\d{3})_([A-Z]\\d{2}-\\d{2})_(AB\\d{6})_FCA Sub-Site Report App B_.*$";
+	static final String correctAppBRegex = "(20\\d{2})_(IE\\d{3}|IA\\d{3}|JS\\d{3})_([A-Z]\\d{2}-\\d{2})_(AB\\d{6})_FCA Sub-Site Report App B_(.+)\\.pdf$";
 
 	/**
 	 * All characters that are invalid for a site description within a report
@@ -240,6 +240,9 @@ public class Main {
 							checkNaming();
 							handleIncorrect();
 							terminate();
+							
+							updateInfo(InfoText.DONE);
+							run.setEnabled(true);
 
 							return true;
 						}
@@ -358,6 +361,8 @@ public class Main {
 		for (File file : reports) {
 			String name = file.getName();
 			Matcher subSiteMatch = subSiteRegex.matcher(name), appBMatch = appBRegex.matcher(name);
+			subSiteMatch.find();
+			appBMatch.find();
 			if (subSiteMatch.matches() || appBMatch.matches()) {
 				boolean appB = appBMatch.matches();
 				Matcher corrMatch = appB ? appBMatch : subSiteMatch;
@@ -368,7 +373,7 @@ public class Main {
 					// can't find maximo ID, add to files with incorrect names
 					incorrectReports.add(file);
 				else {
-					if (foundRow.getCell(2).toString().equals(siteID) && foundRow.getCell(4).equals(locID)) {
+					if (foundRow.getCell(2).toString().equals(siteID) && foundRow.getCell(4).toString().equals(locID)) {
 						String finalDescription = getDescription(desc, foundRow.getCell(3).toString(), name);
 						if (finalDescription == null) {
 							// user skipped/closed dialog, add to files with incorrect names
@@ -376,8 +381,8 @@ public class Main {
 							continue;
 						}
 						file.renameTo(
-								new File(file.getParent() + String.format(Messages.getString("Main.name.nameFormat"),
-										year, siteID, locID, maximo, appB ? " App B" : "", finalDescription)));
+								new File(file.getParent() + "\\" + String.format(Messages.getString("Main.name.nameFormat"),
+										year, siteID, locID, maximo, appB ? " App B" : "", finalDescription) + ".pdf"));
 						if (appB)
 							corrAppB++;
 						else
@@ -525,7 +530,7 @@ public class Main {
 	 */
 	final static String YEAR_REGEX = "20\\d{2}", SITE_ID_REGEX = "IE\\d{3}|IA\\d{3}|JS\\d{3}",
 			LOCATION_ID_REGEX = "[A-Z]\\d{2}-\\d{2}", MAXIMO_REGEX = "AB\\d{6}", APP_B_REGEX = "App B",
-			DESC_REGEX = "FCA Sub-Site Report(?: App B)?_(.+)";
+			DESC_REGEX = "FCA Sub-Site Report(?: App B)?_(.+).pdf";
 
 	/**
 	 * Processes files in {@link #incorrectReports}
@@ -545,32 +550,63 @@ public class Main {
 		for (File file : incorrectReports) {
 			String foundName = file.getName();
 
-			String foundYear = Pattern.compile(YEAR_REGEX).matcher(foundName).group(),
-					foundSite = Pattern.compile(SITE_ID_REGEX).matcher(foundName).group(),
-					foundLocation = Pattern.compile(LOCATION_ID_REGEX).matcher(foundName).group(),
-					foundMaximo = Pattern.compile(MAXIMO_REGEX).matcher(foundName).group(),
-					foundAppB = Pattern.compile(APP_B_REGEX).matcher(foundName).group(),
-					foundDesc = Pattern.compile(DESC_REGEX).matcher(foundName).group(1);
+			String foundYear = findMatch(Pattern.compile(YEAR_REGEX).matcher(foundName)),
+					foundSite = findMatch(Pattern.compile(SITE_ID_REGEX).matcher(foundName)),
+					foundLocation = findMatch(Pattern.compile(LOCATION_ID_REGEX).matcher(foundName)),
+					foundMaximo = findMatch(Pattern.compile(MAXIMO_REGEX).matcher(foundName)),
+					foundAppB = findMatch(Pattern.compile(APP_B_REGEX).matcher(foundName)),
+					foundDesc = findMatch(Pattern.compile(DESC_REGEX).matcher(foundName), 1);
 
 			XSSFRow sheetRowMID = findRowMID(foundMaximo);
 			XSSFRow sheetRowLOC = findRowLOC(foundLocation);
 
 			String sheetSite = "", sheetLocation = "", sheetMaximo = "", sheetDesc = "";
 
-			if (sheetRowMID.equals(sheetRowLOC)) {
+			if (sheetRowMID.equals(sheetRowLOC) && sheetRowMID != null) {
 				sheetSite = sheetRowMID.getCell(2).toString();
 				sheetLocation = sheetRowMID.getCell(4).toString();
 				sheetMaximo = sheetRowMID.getCell(7).toString();
-				sheetDesc = sheetRowMID.getCell(15).toString();
+				sheetDesc = sheetRowMID.getCell(3).toString();
 			}
 
 			String newName = getNameDialog(file, foundYear, foundSite, sheetSite, foundLocation, sheetLocation,
 					foundMaximo, sheetMaximo, foundAppB, foundDesc, sheetDesc);
 
 			if (newName != null)
-				file.renameTo(new File(file.getParent() + newName + ".pdf"));
+				file.renameTo(new File(file.getParent() + "\\" + newName + ".pdf"));
 			else
 				writeToInfo.append(String.format(Messages.getString("Main.infoFile.skipped"), file.getAbsolutePath()));
+		}
+	}
+	
+	/**
+	 * Returns the match found by the given Matcher, unless there is no match, then return an empty String
+	 * @param match the Matcher
+	 * @return the match found, or an empty String
+	 * @see #findMatch(Matcher, int)
+	 */
+	static String findMatch(Matcher match) {
+		try {
+			match.find();
+			return match.group();
+		} catch (IllegalStateException e) {
+			return "";
+		}
+	}
+	
+	/**
+	 * Returns the specified group found by the given Matcher, unless there is no match, then return an empty String 
+	 * @param match the Matcher
+	 * @param group the 1-indexed group
+	 * @return the group found, or an empty String
+	 * @see #findMatch(Matcher)
+	 */
+	static String findMatch(Matcher match, int group) {
+		try {
+			match.find();
+			return match.group(group);
+		} catch (IllegalStateException e) {
+			return "";
 		}
 	}
 
@@ -719,6 +755,9 @@ public class Main {
 			}
 		});
 
+		activeNamePortions = new String[6];
+		doSkip = true;
+		rewriteTextNameDialog();
 		rewritePreviewNameDialog();
 		nameDialog.pack();
 		nameDialog.setVisible(true);
@@ -804,7 +843,7 @@ public class Main {
 			XSSFRow row = hierarchySheet.getRow(i);
 			if (row == null)
 				return null;
-			if (row.getCell(4).toString().equals(location))
+			if (row.getCell(4).toString().equals(location) && !row.getCell(6).toString().equals(""))
 				return row;
 		}
 		return null;
@@ -891,6 +930,8 @@ public class Main {
 			return Messages.getString("Main.infoText.loadSheets");
 		case SELECT_PROMPT:
 			return Messages.getString("Main.infoText.selectPrompt");
+		case DONE:
+			return Messages.getString("Main.infoText.done");
 		}
 		return null;
 	}
