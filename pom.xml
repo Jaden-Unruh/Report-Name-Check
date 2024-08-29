@@ -2,8 +2,45 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>us.akana.tools</groupId>
   <artifactId>report-name-check</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>0.1.0</version>
+  <packaging>jar</packaging>
   <name>FCA Report Name Check Tool</name>
+  <description>
+  	A tool for Akana to confirm and correct the naming scheme of sub-site and appendix B reports, chekcing against a location hierarchy spreadsheet.
+  </description>
+  <url>https://github.com/Jaden-Unruh/Report-Name-Check</url>
+  <inceptionYear>2024</inceptionYear>
+  <organization>
+  	<name>Akana</name>
+  	<url>https://akana.us/</url>
+  </organization>
+  <licenses>
+  	<license>
+  		<name>GPL-3.0-or-later</name>
+  		<url>https://www.gnu.org/licenses/gpl-3.0.txt</url>
+  		<distribution>manual</distribution>
+  	</license>
+  </licenses>
+  <developers>
+  	<developer>
+  		<id>Jaden.Unruh</id>
+  		<name>Jaden Unruh</name>
+  		<email>Jaden.Unruh@akana.us</email>
+  		<organization>Akana</organization>
+  		<organizationUrl>https://akana.us/</organizationUrl>
+  		<roles>
+  			<role>Developer</role>
+  			<role>Documentation</role>
+  			<role>Literally all of it</role>
+  		</roles>
+  	</developer>
+  </developers>
+  
+  <properties>
+  	<maven.compiler.source>14</maven.compiler.source>
+  	<maven.compiler.target>14</maven.compiler.target>
+  </properties>
+  
   <dependencies>
   	<dependency>
   		<groupId>org.apache.commons</groupId>
@@ -21,4 +58,27 @@
   		<version>5.2.3</version>
   	</dependency>
   </dependencies>
+  
+  <build>
+  	<pluginManagement>
+  		<plugins>
+  			<plugin>
+  				<groupId>org.apache.maven.plugins</groupId>
+  				<artifactId>maven-assembly-plugin</artifactId>
+  				<version>3.6.0</version>
+  				<configuration>
+  					<appendAssemblyId>false</appendAssemblyId>
+  					<archive>
+  						<manifest>
+  							<mainClass>reportNameCheck.Main</mainClass>
+  						</manifest>
+  					</archive>
+  					<descriptorRefs>
+  						<descriptorRef>jar-with-dependencies</descriptorRef>
+  					</descriptorRefs>
+  				</configuration>
+  			</plugin>
+  		</plugins>
+  	</pluginManagement>
+  </build>
 </project>

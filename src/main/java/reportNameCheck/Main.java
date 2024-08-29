@@ -37,7 +37,6 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.WindowConstants;
 
@@ -47,38 +46,114 @@ import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
+/**
+ * Entry class for {@link reportNameCheck}
+ * 
+ * @author Jaden
+ * @version 0.1.0
+ * @since 0.0.1
+ */
 public class Main {
 
+	/**
+	 * The hierarchy spreadsheet and the parent directory for the reports, once
+	 * selected
+	 */
 	static File[] selectedFiles = new File[2];
 
+	/**
+	 * The current state of {@link #info}
+	 * 
+	 * @see #getInfoText()
+	 */
 	static InfoText infoText;
 
+	/**
+	 * The primary application window
+	 */
 	static JFrame window;
+
+	/**
+	 * Information label at the bottom of {@link #window}
+	 * 
+	 * @see Main#infoText
+	 */
 	static JLabel info = new JLabel();
+
+	/**
+	 * Buttons on {@link #window} to open the selected directory
+	 * ({@link #selectedFiles} index 1), and to start the program
+	 */
 	static JButton open, run;
+
+	/**
+	 * A preview of the folders in the selected directory ({@link #selectedFiles}
+	 * index 1), shown on {@link #window}
+	 */
 	static JTextArea preview;
 
+	/**
+	 * Writes to the output information file (Report Name Check Information %s.txt)
+	 */
 	static FileWriter writeToInfo;
 
+	/**
+	 * The time the program started running, in nanoseconds from an arbitrary origin
+	 * time (used relatively, from {@link System#nanoTime()}
+	 */
 	static long startTime;
 
+	/**
+	 * High-level representation of the location hierarchy spreadsheet (from
+	 * {@link #selectedFiles} index 0)
+	 */
 	static XSSFSheet hierarchySheet;
 
+	/**
+	 * All reports found within the selected directory ({@link #selectedFiles} index
+	 * 1), defined in {@link #findReports()}.
+	 * 
+	 * @see Main#incorrectReports
+	 */
 	static HashSet<File> reports;
+	/**
+	 * A subset of {@link #reports} containing only those files whose names are
+	 * incorrect. Defined in {@link #checkNaming()}.
+	 */
 	static HashSet<File> incorrectReports;
 
+	/**
+	 * Regular expression representing a correctly named Sub-site report
+	 * 
+	 * 20##_IE###_A##-##_AB######_FCA Sub-Site Report_asdf
+	 */
 	static final String correctSubSiteRegex = "(20\\d{2})_(IE\\d{3}|IA\\d{3}|JS\\d{3})_([A-Z]\\d{2}-\\d{2})_(AB\\d{6})_FCA Sub-Site Report_.*$";
+
+	/**
+	 * Regular expression representing a correctly named Appendix B report
+	 * 
+	 * 20##_IE###_A##-##_AB######_FCA Sub-Site Report App B_asdf
+	 */
 	static final String correctAppBRegex = "(20\\d{2})_(IE\\d{3}|IA\\d{3}|JS\\d{3})_([A-Z]\\d{2}-\\d{2})_(AB\\d{6})_FCA Sub-Site Report App B_.*$";
 
+	/**
+	 * All characters that are invalid for a site description within a report
+	 * name
+	 */
 	static final String[] INVALID_CHARACTERS = { "-", "(", ")", ".", "'", "\\", "/", ":", "_", "\"", "," };
 
+	/**
+	 * Entry method for Report Name Check. Opens main program window.
+	 * 
+	 * @param args unused
+	 */
 	public static void main(String[] args) {
 		openWindow();
-
-		getNameDialog(new File("2024_IA000_A00-00_AB000000_FCA Sub-Site Report_Akana University"), "2024", "IA000",
-				"JS123", "A00-00", "J12-34", "AB000000", "AB123456", " App B", "Akana University", "Akana-University");
 	}
-
+	
+	/**
+	 * Populates and opens the main program window
+	 */
 	private static void openWindow() {
 		window = new JFrame(Messages.getString("Main.window.title"));
 		window.setLayout(new GridBagLayout());
@@ -164,8 +239,7 @@ public class Main {
 							findReports();
 							checkNaming();
 							handleIncorrect();
-
-							// TODO: terminate
+							terminate();
 
 							return true;
 						}
@@ -197,6 +271,12 @@ public class Main {
 		window.setVisible(true);
 	}
 
+	/**
+	 * Creates and initializes the info file
+	 * 
+	 * @throws IOException if there's an error creating the file
+	 * @see #writeToInfo
+	 */
 	private static void init() throws IOException {
 		startTime = System.nanoTime();
 		updateInfo(InfoText.INIT);
@@ -209,6 +289,13 @@ public class Main {
 		writeToInfo.append(String.format(Messages.getString("Main.infoFile.header"), dateTime));
 	}
 
+	/**
+	 * Creates {@link #hierarchySheet} from the selected location hierarchy file
+	 * (Main{@link #selectedFiles} index 0)
+	 * 
+	 * @throws FileNotFoundException if the file cannot be found
+	 * @throws IOException           if there's an error reading the file
+	 */
 	private static void loadSheets() throws FileNotFoundException, IOException {
 		updateInfo(InfoText.LOAD_SHEETS);
 		XSSFWorkbook hierarchyBook = new XSSFWorkbook(new FileInputStream(selectedFiles[0]));
@@ -216,12 +303,27 @@ public class Main {
 		hierarchySheet = hierarchyBook.getSheetAt(0);
 	}
 
+	/**
+	 * Finds all reports within the selected parent directory -
+	 * {@link #selectedFiles} index 1. Adds all found reports to {@link #reports}
+	 * 
+	 * @see #reports
+	 * @see #findReportsRecur(File)
+	 */
 	private static void findReports() {
 		updateInfo(InfoText.FIND_REPORTS);
 		reports = new HashSet<>();
 		findReportsRecur(selectedFiles[1]);
 	}
 
+	/**
+	 * Finds all reports within the provided directory, used recursively. Adds all
+	 * found reports to {@link #reports}
+	 * 
+	 * @param directory the directory to search
+	 * @see #reports
+	 * @see #findReports()
+	 */
 	private static void findReportsRecur(File directory) {
 		File[] contents = directory.listFiles();
 		for (File file : contents) {
@@ -232,6 +334,21 @@ public class Main {
 		}
 	}
 
+	/**
+	 * Checks the naming on all {@link #reports}.
+	 * 
+	 * Compares against {@link #correctSubSiteRegex} and {@link #correctAppBRegex}.
+	 * If it matches, pull each component and confirm that the rows in
+	 * {@link #hierarchySheet} corresponding to the location ID and maximo ID are
+	 * the same and have all the same other components of the file name. If
+	 * description varies or contains invalid characters, prompt the user with
+	 * {@link #getDescription(String, String, String)}.
+	 * 
+	 * If anything doesn't match, or the user skips the description prompt, add to
+	 * {@link #incorrectReports} and continue.
+	 * 
+	 * @throws IOException if {@link #writeToInfo} fails
+	 */
 	private static void checkNaming() throws IOException {
 		updateInfo(InfoText.CHECK_NAMES);
 		incorrectReports = new HashSet<>();
@@ -241,34 +358,35 @@ public class Main {
 		for (File file : reports) {
 			String name = file.getName();
 			Matcher subSiteMatch = subSiteRegex.matcher(name), appBMatch = appBRegex.matcher(name);
-			if (subSiteMatch.matches()) {
-				String year = subSiteMatch.group(1), siteID = subSiteMatch.group(2), locID = subSiteMatch.group(3),
-						maximo = subSiteMatch.group(4), desc = subSiteMatch.group(5);
+			if (subSiteMatch.matches() || appBMatch.matches()) {
+				boolean appB = appBMatch.matches();
+				Matcher corrMatch = appB ? appBMatch : subSiteMatch;
+				String year = corrMatch.group(1), siteID = corrMatch.group(2), locID = corrMatch.group(3),
+						maximo = corrMatch.group(4), desc = corrMatch.group(5);
 				XSSFRow foundRow = findRowMID(maximo);
 				if (foundRow == null)
 					// can't find maximo ID, add to files with incorrect names
 					incorrectReports.add(file);
 				else {
 					if (foundRow.getCell(2).toString().equals(siteID) && foundRow.getCell(4).equals(locID)) {
-						String finalDescription = getDescription(desc, foundRow.getCell(15).toString(), name);
+						String finalDescription = getDescription(desc, foundRow.getCell(3).toString(), name);
 						if (finalDescription == null) {
 							// user skipped/closed dialog, add to files with incorrect names
 							incorrectReports.add(file);
 							continue;
 						}
-						file.renameTo(new File(
-								file.getParent() + String.format(Messages.getString("Main.function.subSiteFormat"),
-										year, siteID, locID, maximo, finalDescription)));
-						corrSubSite++;
+						file.renameTo(
+								new File(file.getParent() + String.format(Messages.getString("Main.name.nameFormat"),
+										year, siteID, locID, maximo, appB ? " App B" : "", finalDescription)));
+						if (appB)
+							corrAppB++;
+						else
+							corrSubSite++;
 					} else {
 						// some data incorrect, add to files with incorrect names
 						incorrectReports.add(file);
 					}
 				}
-				continue;
-			}
-			if (appBMatch.matches()) {
-				corrAppB++;
 				continue;
 			}
 			// file name is incorrect (doesn't match regex for app B or sub-site)
@@ -277,8 +395,22 @@ public class Main {
 		writeToInfo.write(String.format(Messages.getString("Main.infoFile.correct"), corrSubSite, corrAppB));
 	}
 
+	/**
+	 * Whether the user is actively skipping a dialog
+	 */
 	private static boolean doSkip;
 
+	/**
+	 * Prompts the user for a site description for the file with the provided
+	 * name
+	 * 
+	 * @param currDesc   the current site description on the file
+	 * @param sheetDesc  the site description pulled from
+	 *                   {@link #hierarchySheet}
+	 * @param reportName the full name of the report
+	 * @return the user-decided site description
+	 * @see #doDescPopup(String, String, String, boolean)
+	 */
 	private static String getDescription(String currDesc, String sheetDesc, String reportName) {
 		if (currDesc.equals(sheetDesc)) {
 			if (Arrays.stream(INVALID_CHARACTERS).anyMatch(currDesc::contains)) {
@@ -291,6 +423,17 @@ public class Main {
 		}
 	}
 
+	/**
+	 * Initiates the popup prompting a site description
+	 * 
+	 * @param currDesc   the current site description on the file
+	 * @param sheetDesc  the site description pulled from
+	 *                   {@link #hierarchySheet}
+	 * @param reportName the full name of the report
+	 * @param equal      whether currDesc and sheetDesc are the same
+	 * @return the users input for site description
+	 * @see #getDescription(String, String, String)
+	 */
 	private static String doDescPopup(String currDesc, String sheetDesc, String reportName, boolean equal) {
 		JPanel popupPanel = new JPanel(new GridBagLayout());
 
@@ -314,7 +457,7 @@ public class Main {
 
 		popupPanel.add(new JLabel(Messages.getString("Main.popup.midLabel")), simpleConstraints(0, 4, 3, 1));
 
-		EntryField entry = new EntryField("[^._\\-\\/\\\\'\":,()]+", "description");
+		EntryField entry = new EntryField("[^._\\-\\/\\\\'\":,()]+", "description", 0);
 		popupPanel.add(entry, simpleConstraints(0, 5, 3, 1));
 		entry.setPreferredSize(new Dimension(100, 20));
 
@@ -377,14 +520,27 @@ public class Main {
 			return entry.getText();
 	}
 
-	final static String YEAR_REGEX = "20\\d{2}";
-	final static String SITE_ID_REGEX = "IE\\d{3}|IA\\d{3}|JS\\d{3}";
-	final static String LOCATION_ID_REGEX = "[A-Z]\\d{2}-\\d{2}";
-	final static String MAXIMO_REGEX = "AB\\d{6}";
-	final static String APP_B_REGEX = "App B";
-	final static String DESC_REGEX = "FCA Sub-Site Report(?: App B)?_(.+)";
+	/**
+	 * Regular expressions representing each component of a correct report name
+	 */
+	final static String YEAR_REGEX = "20\\d{2}", SITE_ID_REGEX = "IE\\d{3}|IA\\d{3}|JS\\d{3}",
+			LOCATION_ID_REGEX = "[A-Z]\\d{2}-\\d{2}", MAXIMO_REGEX = "AB\\d{6}", APP_B_REGEX = "App B",
+			DESC_REGEX = "FCA Sub-Site Report(?: App B)?_(.+)";
 
-	private static void handleIncorrect() {
+	/**
+	 * Processes files in {@link #incorrectReports}
+	 * 
+	 * Attempts to find year, site, location, maximo id, description, and whether
+	 * the file is an App B from the name. Also attempts to pull data from the
+	 * location hierarchy spreadsheet.
+	 * 
+	 * Opens a dialog with
+	 * {@link #getNameDialog(File, String, String, String, String, String, String, String, String, String, String)}
+	 * with all the found information to get the name, then renames the file.
+	 * 
+	 * @throws IOException if {@link #writeToInfo} fails
+	 */
+	private static void handleIncorrect() throws IOException {
 		updateInfo(InfoText.INCORRECT);
 		for (File file : incorrectReports) {
 			String foundName = file.getName();
@@ -410,16 +566,71 @@ public class Main {
 
 			String newName = getNameDialog(file, foundYear, foundSite, sheetSite, foundLocation, sheetLocation,
 					foundMaximo, sheetMaximo, foundAppB, foundDesc, sheetDesc);
+
+			if (newName != null)
+				file.renameTo(new File(file.getParent() + newName + ".pdf"));
+			else
+				writeToInfo.append(String.format(Messages.getString("Main.infoFile.skipped"), file.getAbsolutePath()));
 		}
 	}
 
+	/**
+	 * Each part of the name of the file actively being renamed.
+	 * 
+	 * By index: {year, siteID, locationID, maximoID, ?appB, description}
+	 */
 	static String[] activeNamePortions = new String[6];
+	
+	/**
+	 * The preview of what the file will be named.
+	 * 
+	 * @see #activeNamePortions
+	 */
 	static JTextField previewNameDialog = new JTextField();
+	
+	/**
+	 * Checkbox on {@link #nameDialog} for the user to select whether the file is an appendix B report
+	 */
 	static JCheckBox isAppB = new JCheckBox();
+	
+	/**
+	 * The main panel on {@link #nameDialog}
+	 */
 	static JPanel nameDialogPanel;
+	
+	/**
+	 * A popup for the user to construct the name for a file
+	 * 
+	 * @see #nameDialogPanel
+	 */
 	static JDialog nameDialog;
+	
+	/**
+	 * Entry fields on {@link #nameDialog} for each component of the report name
+	 */
 	static EntryField year, site, loc, max, desc;
+	
+	/**
+	 * A button to close {@link #nameDialog} and save the input name
+	 */
+	static JButton done;
 
+	/**
+	 * Opens the dialog to prompt the user for a file name
+	 * 
+	 * @param file the file to rename
+	 * @param foundYear the year found in the name of the file
+	 * @param foundSite the siteId found in the name of the file
+	 * @param sheetSite the siteID found in {@link #hierarchySheet}
+	 * @param foundLocation the locationID found in the name of the file
+	 * @param sheetLocation the locationID found in {@link #hierarchySheet}
+	 * @param foundMaximo the maximoID found in the name of the file
+	 * @param sheetMaximo the maximoID found in {@link #hierarchySheet}
+	 * @param foundAppB " App B" if the file is appendix B as determined by the file name, "" otherwise
+	 * @param foundDesc the site description found in the name of the file
+	 * @param sheetDesc the site description found in {@link #hierarchySheet}
+	 * @return the name for the file
+	 */
 	private static String getNameDialog(File file, String foundYear, String foundSite, String sheetSite,
 			String foundLocation, String sheetLocation, String foundMaximo, String sheetMaximo, String foundAppB,
 			String foundDesc, String sheetDesc) {
@@ -431,7 +642,7 @@ public class Main {
 		nameDialogPanel.add(new JLabel(file.getName()), simpleConstraints(0, 1, 5, 1));
 
 		JButton open = new JButton(Messages.getString("Main.name.open"));
-		nameDialogPanel.add(open, simpleConstraints(9, 1, 1, 1));
+		nameDialogPanel.add(open, simpleConstraints(5, 1, 1, 1));
 
 		nameDialogPanel.add(new JLabel(Messages.getString("Main.name.year")), simpleConstraints(0, 2, 1, 1));
 		nameDialogPanel.add(new JLabel(Messages.getString("Main.name.site")), simpleConstraints(1, 2, 1, 1));
@@ -458,11 +669,11 @@ public class Main {
 		});
 		isAppB.setSelected(foundAppB.equals("App B"));
 
-		year = new EntryField(YEAR_REGEX, "20##");
-		site = new EntryField(SITE_ID_REGEX, "IA000");
-		loc = new EntryField(LOCATION_ID_REGEX, "A00-00");
-		max = new EntryField(MAXIMO_REGEX, "AB000000");
-		desc = new EntryField("[^._\\-\\/\\\\'\":,()]+", "Akana University");
+		year = new EntryField(YEAR_REGEX, "20##", 0);
+		site = new EntryField(SITE_ID_REGEX, "IA000", 1);
+		loc = new EntryField(LOCATION_ID_REGEX, "A00-00", 2);
+		max = new EntryField(MAXIMO_REGEX, "AB000000", 3);
+		desc = new EntryField("[^._\\-\\/\\\\'\":,()]+", "Akana University", 5);
 
 		nameDialogPanel.add(year, simpleConstraints(0, 5, 1, 1));
 		nameDialogPanel.add(site, simpleConstraints(1, 5, 1, 1));
@@ -474,10 +685,13 @@ public class Main {
 		previewNameDialog.setEditable(false);
 		previewNameDialog.setFocusable(false);
 
-		JButton skip = new JButton(Messages.getString("Main.popup.skip")),
-				done = new JButton(Messages.getString("Main.popup.done"));
+		JButton skip = new JButton(Messages.getString("Main.popup.skip"));
+		done = new JButton(Messages.getString("Main.popup.done"));
 
-		nameDialog = new JDialog(window, Messages.getString("Main.popup.title"), true);
+		nameDialogPanel.add(skip, simpleConstraints(1, 7, 2, 1));
+		nameDialogPanel.add(done, simpleConstraints(4, 7, 2, 1));
+
+		nameDialog = new JDialog(window, Messages.getString("Main.name.title"), true);
 		nameDialog.add(nameDialogPanel);
 		nameDialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
@@ -495,6 +709,16 @@ public class Main {
 			}
 		});
 
+		open.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				try {
+					Desktop.getDesktop().open(file);
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
+			}
+		});
+
 		rewritePreviewNameDialog();
 		nameDialog.pack();
 		nameDialog.setVisible(true);
@@ -502,29 +726,60 @@ public class Main {
 		if (doSkip)
 			return null;
 		else {
+			rewriteTextNameDialog();
 			rewritePreviewNameDialog();
 			return previewNameDialog.getText();
 		}
 	}
 
+	/**
+	 * Updates and rewrites {@link #previewNameDialog} on {@link #nameDialog}
+	 */
 	static void rewritePreviewNameDialog() {
-		//Making not-invoke later shows up, but concurrency(?) error
-		Runnable doRewrite = new Runnable() {
-			public void run() {
-				previewNameDialog.setText(String.format(Messages.getString("Main.name.nameFormat"), activeNamePortions[0],
-						activeNamePortions[1], activeNamePortions[2], activeNamePortions[3],
-						isAppB.isSelected() ? " App B" : "", activeNamePortions[5]));
-				nameDialog.pack();
-				year.setText(activeNamePortions[0]);
-				site.setText(activeNamePortions[1]);
-				loc.setText(activeNamePortions[2]);
-				max.setText(activeNamePortions[3]);
-				desc.setText(activeNamePortions[5]);
-			}
-		};
-		SwingUtilities.invokeLater(doRewrite);
+		previewNameDialog.setText(String.format(Messages.getString("Main.name.nameFormat"), activeNamePortions[0],
+				activeNamePortions[1], activeNamePortions[2], activeNamePortions[3],
+				isAppB.isSelected() ? " App B" : "", activeNamePortions[5]));
+		done.setEnabled(year.isValid && site.isValid && loc.isValid && max.isValid && desc.isValid);
+		nameDialog.pack();
 	}
 
+	/**
+	 * Updates and rewrites the EntryFields on {@link #nameDialog}
+	 */
+	static void rewriteTextNameDialog() {
+		year.setText(activeNamePortions[0]);
+		site.setText(activeNamePortions[1]);
+		loc.setText(activeNamePortions[2]);
+		max.setText(activeNamePortions[3]);
+		desc.setText(activeNamePortions[5]);
+		nameDialog.pack();
+	}
+
+	/**
+	 * Closes {@link #hierarchySheet} and writes and closes {@link #writeToInfo}
+	 * @throws IOException
+	 */
+	private static void terminate() throws IOException {
+		updateInfo(InfoText.CLOSING);
+		hierarchySheet.getWorkbook().close();
+
+		String dateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH:mm:ss.SSS"));
+		DecimalFormat secondFormatter = new DecimalFormat("#,###.########");
+
+		double seconds = (double) (System.nanoTime() - startTime) / 1e9;
+
+		writeToInfo.append(
+				String.format(Messages.getString("Main.infoFile.footer"), dateTime, secondFormatter.format(seconds)));
+
+		writeToInfo.close();
+	}
+	
+	/**
+	 * Finds a row in {@link #hierarchySheet} with the given Maximo ID
+	 * @param maximoID the maximo id to find
+	 * @return the corresponding row
+	 * @see #findRowLOC(String)
+	 */
 	private static XSSFRow findRowMID(String maximoID) {
 		int rows = hierarchySheet.getPhysicalNumberOfRows();
 		for (int i = 0; i < rows; i++) {
@@ -537,6 +792,12 @@ public class Main {
 		return null;
 	}
 
+	/**
+	 * Finds a row in {@link #hierarchySheet} with the given Location ID
+	 * @param location the location id to find
+	 * @return the corresponding row
+	 * @see #findRowMID(String)
+	 */
 	private static XSSFRow findRowLOC(String location) {
 		int rows = hierarchySheet.getPhysicalNumberOfRows();
 		for (int i = 0; i < rows; i++) {
@@ -549,10 +810,19 @@ public class Main {
 		return null;
 	}
 
+	/**
+	 * Confirms the user has selected an xlsx file for the hierarchy spreadsheet and a directory for the parent directory
+	 * @return true if both selections are correct
+	 */
 	private static boolean checkCorrectSelections() {
 		return FilenameUtils.getExtension(selectedFiles[0].getName()).equals("xlsx") && selectedFiles[1].isDirectory();
 	}
 
+	/**
+	 * Shows an error message window for the given exception
+	 * @param e the exception to show a window for
+	 * @throws IOException if {@link #writeToInfo} fails
+	 */
 	private static void showErrorMessage(Exception e) throws IOException {
 		e.printStackTrace();
 		String[] choices = { Messages.getString("Main.window.error.close"),
@@ -596,14 +866,42 @@ public class Main {
 				0, 0);
 	}
 
+	/**
+	 * Gets the text that should currently be shown in {@link #info}, from {@link #infoText}
+	 * @return the String of text that should be shown
+	 * @see #updateInfo(InfoText)
+	 */
 	static String getInfoText() {
-		return "";
+		switch(infoText) {
+		case CHECK_NAMES:
+			return Messages.getString("Main.infoText.checkNames");
+		case CLOSING:
+			return Messages.getString("Main.infoText.closing");
+		case DESKTOP:
+			return Messages.getString("Main.infoText.desktop");
+		case ERROR:
+			return Messages.getString("Main.infoText.error");
+		case FIND_REPORTS:
+			return Messages.getString("Main.infoText.findReports");
+		case INCORRECT:
+			return Messages.getString("Main.infoText.incorrect");
+		case INIT:
+			return Messages.getString("Main.infoText.init");
+		case LOAD_SHEETS:
+			return Messages.getString("Main.infoText.loadSheets");
+		case SELECT_PROMPT:
+			return Messages.getString("Main.infoText.selectPrompt");
+		}
+		return null;
 	}
 
 	/**
 	 * Updates info to the specified enum value
 	 * 
 	 * @param text the value to set to
+	 * @see #info
+	 * @see #infoText
+	 * @see #getInfoText()
 	 */
 	static void updateInfo(InfoText text) {
 		infoText = text;
