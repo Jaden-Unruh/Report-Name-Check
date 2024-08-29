@@ -7,7 +7,7 @@
   <name>FCA Report Name Check Tool</name>
   <description>
   	<![CDATA[
-  	A tool for Akana to confirm and correct the naming scheme of sub-site and appendix B reports, chekcing against a location hierarchy spreadsheet. Documentation can be found at <a href="https://jaden-unruh.github.io/report-name-check/doc/index.html">GitHub doc index</a>.
+  	A tool for Akana to confirm and correct the naming scheme of sub-site and appendix B reports, checking against a location hierarchy spreadsheet. Documentation can be found at <a href="https://jaden-unruh.github.io/Report-Name-Check/doc/index.html">GitHub doc index</a>.
   	]]>
   </description>
   <url>https://github.com/Jaden-Unruh/Report-Name-Check</url>
