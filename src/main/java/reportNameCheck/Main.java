@@ -50,10 +50,20 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
  * Entry class for {@link reportNameCheck}
  * 
  * @author Jaden
- * @version 0.2.0
+ * @version 1.0.0
  * @since 0.0.1
  */
 public class Main {
+
+	// TODO more automatic?
+	/*
+	 * TODO a couple known flaws: 
+	 * - If a file with the same name in the same directory as the target for a
+	 * report rename, the report will not be renamed 
+	 * - Some exceptions (null pointer exception when referencing `year` from
+	 * `rewritePreviewNameDialog` from `EntryField.insertUpdate`...) don't throw to
+	 * user to get fst
+	 */
 
 	/**
 	 * The hierarchy spreadsheet and the parent directory for the reports, once
@@ -128,7 +138,7 @@ public class Main {
 	 * 20##_IE###_A##-##_AB######_FCA Sub-Site Report_asdf
 	 */
 	static final String correctSubSiteRegex = "(20\\d{2})_(IE\\d{3}|IA\\d{3}|JS\\d{3})_([A-Z]\\d{2}-\\d{2})_(AB\\d{6})_FCA Sub-Site Report_(.+)\\.pdf$";
-	
+
 	/**
 	 * Regular expression representing a correctly named Appendix B report
 	 * 
@@ -137,10 +147,15 @@ public class Main {
 	static final String correctAppBRegex = "(20\\d{2})_(IE\\d{3}|IA\\d{3}|JS\\d{3})_([A-Z]\\d{2}-\\d{2})_(AB\\d{6})_FCA Sub-Site Report App B_(.+)\\.pdf$";
 
 	/**
-	 * All characters that are invalid for a site description within a report
-	 * name
+	 * All characters that are invalid for a site description within a report name
 	 */
 	static final String[] INVALID_CHARACTERS = { "-", "(", ")", ".", "'", "\\", "/", ":", "_", "\"", "," };
+
+	/**
+	 * Used when prompting users for information. If true, it's a description
+	 * prompt, if false, it's a full-name prompt
+	 */
+	static boolean isDescPopup = false;
 
 	/**
 	 * Entry method for Report Name Check. Opens main program window.
@@ -150,7 +165,7 @@ public class Main {
 	public static void main(String[] args) {
 		openWindow();
 	}
-	
+
 	/**
 	 * Populates and opens the main program window
 	 */
@@ -240,7 +255,7 @@ public class Main {
 							checkNaming();
 							handleIncorrect();
 							terminate();
-							
+
 							updateInfo(InfoText.DONE);
 							run.setEnabled(true);
 
@@ -381,8 +396,11 @@ public class Main {
 							continue;
 						}
 						file.renameTo(
-								new File(file.getParent() + "\\" + String.format(Messages.getString("Main.name.nameFormat"),
-										year, siteID, locID, maximo, appB ? " App B" : "", finalDescription) + ".pdf"));
+								new File(
+										file.getParent() + "\\"
+												+ String.format(Messages.getString("Main.name.nameFormat"), year,
+														siteID, locID, maximo, appB ? " App B" : "", finalDescription)
+												+ ".pdf"));
 						if (appB)
 							corrAppB++;
 						else
@@ -406,12 +424,10 @@ public class Main {
 	private static boolean doSkip;
 
 	/**
-	 * Prompts the user for a site description for the file with the provided
-	 * name
+	 * Prompts the user for a site description for the file with the provided name
 	 * 
 	 * @param currDesc   the current site description on the file
-	 * @param sheetDesc  the site description pulled from
-	 *                   {@link #hierarchySheet}
+	 * @param sheetDesc  the site description pulled from {@link #hierarchySheet}
 	 * @param reportName the full name of the report
 	 * @return the user-decided site description
 	 * @see #doDescPopup(String, String, String, boolean)
@@ -432,14 +448,16 @@ public class Main {
 	 * Initiates the popup prompting a site description
 	 * 
 	 * @param currDesc   the current site description on the file
-	 * @param sheetDesc  the site description pulled from
-	 *                   {@link #hierarchySheet}
+	 * @param sheetDesc  the site description pulled from {@link #hierarchySheet}
 	 * @param reportName the full name of the report
 	 * @param equal      whether currDesc and sheetDesc are the same
 	 * @return the users input for site description
 	 * @see #getDescription(String, String, String)
 	 */
 	private static String doDescPopup(String currDesc, String sheetDesc, String reportName, boolean equal) {
+
+		isDescPopup = true;
+
 		JPanel popupPanel = new JPanel(new GridBagLayout());
 
 		popupPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
@@ -578,9 +596,11 @@ public class Main {
 				writeToInfo.append(String.format(Messages.getString("Main.infoFile.skipped"), file.getAbsolutePath()));
 		}
 	}
-	
+
 	/**
-	 * Returns the match found by the given Matcher, unless there is no match, then return an empty String
+	 * Returns the match found by the given Matcher, unless there is no match, then
+	 * return an empty String
+	 * 
 	 * @param match the Matcher
 	 * @return the match found, or an empty String
 	 * @see #findMatch(Matcher, int)
@@ -593,9 +613,11 @@ public class Main {
 			return "";
 		}
 	}
-	
+
 	/**
-	 * Returns the specified group found by the given Matcher, unless there is no match, then return an empty String 
+	 * Returns the specified group found by the given Matcher, unless there is no
+	 * match, then return an empty String
+	 * 
 	 * @param match the Matcher
 	 * @param group the 1-indexed group
 	 * @return the group found, or an empty String
@@ -616,36 +638,37 @@ public class Main {
 	 * By index: {year, siteID, locationID, maximoID, ?appB, description}
 	 */
 	static String[] activeNamePortions = new String[6];
-	
+
 	/**
 	 * The preview of what the file will be named.
 	 * 
 	 * @see #activeNamePortions
 	 */
 	static JTextField previewNameDialog = new JTextField();
-	
+
 	/**
-	 * Checkbox on {@link #nameDialog} for the user to select whether the file is an appendix B report
+	 * Checkbox on {@link #nameDialog} for the user to select whether the file is an
+	 * appendix B report
 	 */
 	static JCheckBox isAppB = new JCheckBox();
-	
+
 	/**
 	 * The main panel on {@link #nameDialog}
 	 */
 	static JPanel nameDialogPanel;
-	
+
 	/**
 	 * A popup for the user to construct the name for a file
 	 * 
 	 * @see #nameDialogPanel
 	 */
 	static JDialog nameDialog;
-	
+
 	/**
 	 * Entry fields on {@link #nameDialog} for each component of the report name
 	 */
 	static EntryField year, site, loc, max, desc;
-	
+
 	/**
 	 * A button to close {@link #nameDialog} and save the input name
 	 */
@@ -654,22 +677,26 @@ public class Main {
 	/**
 	 * Opens the dialog to prompt the user for a file name
 	 * 
-	 * @param file the file to rename
-	 * @param foundYear the year found in the name of the file
-	 * @param foundSite the siteId found in the name of the file
-	 * @param sheetSite the siteID found in {@link #hierarchySheet}
+	 * @param file          the file to rename
+	 * @param foundYear     the year found in the name of the file
+	 * @param foundSite     the siteId found in the name of the file
+	 * @param sheetSite     the siteID found in {@link #hierarchySheet}
 	 * @param foundLocation the locationID found in the name of the file
 	 * @param sheetLocation the locationID found in {@link #hierarchySheet}
-	 * @param foundMaximo the maximoID found in the name of the file
-	 * @param sheetMaximo the maximoID found in {@link #hierarchySheet}
-	 * @param foundAppB " App B" if the file is appendix B as determined by the file name, "" otherwise
-	 * @param foundDesc the site description found in the name of the file
-	 * @param sheetDesc the site description found in {@link #hierarchySheet}
+	 * @param foundMaximo   the maximoID found in the name of the file
+	 * @param sheetMaximo   the maximoID found in {@link #hierarchySheet}
+	 * @param foundAppB     " App B" if the file is appendix B as determined by the
+	 *                      file name, "" otherwise
+	 * @param foundDesc     the site description found in the name of the file
+	 * @param sheetDesc     the site description found in {@link #hierarchySheet}
 	 * @return the name for the file
 	 */
 	private static String getNameDialog(File file, String foundYear, String foundSite, String sheetSite,
 			String foundLocation, String sheetLocation, String foundMaximo, String sheetMaximo, String foundAppB,
 			String foundDesc, String sheetDesc) {
+
+		isDescPopup = false;
+
 		nameDialogPanel = new JPanel(new GridBagLayout());
 
 		nameDialogPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
@@ -775,11 +802,13 @@ public class Main {
 	 * Updates and rewrites {@link #previewNameDialog} on {@link #nameDialog}
 	 */
 	static void rewritePreviewNameDialog() {
+		// if (!isDescPopup) {
 		previewNameDialog.setText(String.format(Messages.getString("Main.name.nameFormat"), activeNamePortions[0],
 				activeNamePortions[1], activeNamePortions[2], activeNamePortions[3],
 				isAppB.isSelected() ? " App B" : "", activeNamePortions[5]));
 		done.setEnabled(year.isValid && site.isValid && loc.isValid && max.isValid && desc.isValid);
 		nameDialog.pack();
+		// }
 	}
 
 	/**
@@ -796,6 +825,7 @@ public class Main {
 
 	/**
 	 * Closes {@link #hierarchySheet} and writes and closes {@link #writeToInfo}
+	 * 
 	 * @throws IOException
 	 */
 	private static void terminate() throws IOException {
@@ -812,9 +842,10 @@ public class Main {
 
 		writeToInfo.close();
 	}
-	
+
 	/**
 	 * Finds a row in {@link #hierarchySheet} with the given Maximo ID
+	 * 
 	 * @param maximoID the maximo id to find
 	 * @return the corresponding row
 	 * @see #findRowLOC(String)
@@ -833,6 +864,7 @@ public class Main {
 
 	/**
 	 * Finds a row in {@link #hierarchySheet} with the given Location ID
+	 * 
 	 * @param location the location id to find
 	 * @return the corresponding row
 	 * @see #findRowMID(String)
@@ -850,7 +882,9 @@ public class Main {
 	}
 
 	/**
-	 * Confirms the user has selected an xlsx file for the hierarchy spreadsheet and a directory for the parent directory
+	 * Confirms the user has selected an xlsx file for the hierarchy spreadsheet and
+	 * a directory for the parent directory
+	 * 
 	 * @return true if both selections are correct
 	 */
 	private static boolean checkCorrectSelections() {
@@ -859,10 +893,12 @@ public class Main {
 
 	/**
 	 * Shows an error message window for the given exception
+	 * 
 	 * @param e the exception to show a window for
 	 * @throws IOException if {@link #writeToInfo} fails
 	 */
 	private static void showErrorMessage(Exception e) throws IOException {
+
 		e.printStackTrace();
 		String[] choices = { Messages.getString("Main.window.error.close"),
 				Messages.getString("Main.window.error.more") };
@@ -906,12 +942,14 @@ public class Main {
 	}
 
 	/**
-	 * Gets the text that should currently be shown in {@link #info}, from {@link #infoText}
+	 * Gets the text that should currently be shown in {@link #info}, from
+	 * {@link #infoText}
+	 * 
 	 * @return the String of text that should be shown
 	 * @see #updateInfo(InfoText)
 	 */
 	static String getInfoText() {
-		switch(infoText) {
+		switch (infoText) {
 		case CHECK_NAMES:
 			return Messages.getString("Main.infoText.checkNames");
 		case CLOSING:
